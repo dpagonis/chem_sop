@@ -11,7 +11,7 @@ Web application for chemistry lab SOP version control and approval workflow with
 ## Installation
 
 ```bash
-pip install .
+pip install chemsop
 ```
 
 ## Usage

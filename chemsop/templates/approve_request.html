@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Approve Request - WSU Lab Management System{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('index') }}" class="back-button">← Back to Home</a>
+  
+  <h1>Approve User Request</h1>
+  
+  <div class="form-container">
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+      <h3 style="margin-top: 0;">Request Details</h3>
+      <p><strong>Name:</strong> {{ pending_request[1] }}</p>
+      <p><strong>Requested Role:</strong> {{ pending_request[3] }}</p>
+      <p><strong>Requested:</strong> {{ pending_request[4] }}</p>
+    </div>
+    
+    <form method="POST" action="{{ url_for('approve_request', id=pending_request[0]) }}">
+      <div class="form-group">
+        <label for="approverPin">Your PIN (to approve):</label>
+        <input type="password" id="approverPin" name="approverPin" minlength="6" required>
+      </div>
+      
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <button type="submit" class="submit-button">Approve User</button>
+        <button type="button" id="reject-btn" 
+                style="padding: 12px 24px; background: white; color: #dc3545; border: 2px solid #dc3545; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.3s;"
+                onmouseover="this.style.backgroundColor='#dc3545'; this.style.color='white';"
+                onmouseout="this.style.backgroundColor='white'; this.style.color='#dc3545';">
+          Reject Request
+        </button>
+      </div>
+    </form>
+    
+    <!-- Hidden reject form -->
+    <form id="reject-form" method="POST" action="{{ url_for('reject_request', id=pending_request[0]) }}" style="display: none;">
+      <input type="hidden" name="approverPin" id="reject-approverPin">
+    </form>
+    
+    <script>
+      document.getElementById('reject-btn').addEventListener('click', function() {
+        if (confirm('Are you sure you want to reject this user request? This cannot be undone.')) {
+          var pin = document.getElementById('approverPin').value;
+          if (!pin) {
+            alert('Please enter your PIN first');
+            return;
+          }
+          document.getElementById('reject-approverPin').value = pin;
+          document.getElementById('reject-form').submit();
+        }
+      });
+    </script>
+  </div>
+  
+  {% if all_pending %}
+  <h2>Other Pending Requests</h2>
+  <ul class="user-list">
+    {% for other in all_pending %}
+      {% if other[0] != pending_request[0] %}
+      <li class="user-item">
+        <strong>{{ other[1] }}</strong> - {{ other[3] }}
+        <div style="color: #666; font-size: 14px;">Requested: {{ other[4] }}</div>
+      </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+{% endblock %}

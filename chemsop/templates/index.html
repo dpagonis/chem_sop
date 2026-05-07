@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Home - WSU Chemistry Stockroom{% endblock %}
+
+{% block content %}
+  <h1>WSU Chemistry Stockroom</h1>
+  <p class="subtitle">SOP Version Control & Electronic Lab Notebook</p>
+  
+  <div class="button-container">
+    <a href="{{ url_for('sops') }}" class="main-button">SOPs</a>
+    <a href="{{ url_for('manage_users') }}" class="main-button">Manage Users</a>
+  </div>
+  
+  {% if pending_approvals %}
+  <div class="pending-approvals">
+    <h2>Pending User Approvals</h2>
+    {% for approval in pending_approvals %}
+    <div class="approval-item">
+      <div class="approval-info">
+        <strong>{{ approval[1] }}</strong> - {{ approval[3] }}
+        <div style="color: #666; font-size: 14px">Requested {{ approval[4] }}</div>
+      </div>
+      <form action="{{ url_for('approve_request', id=approval[0]) }}" method="get" style="display: inline;">
+        <button type="submit" class="approval-button">Review</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endblock %}

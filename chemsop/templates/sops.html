@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}SOPs - WSU Lab Management System{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('index') }}" class="back-button">← Back to Home</a>
+  
+  <h1>Standard Operating Procedures (SOPs)</h1>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="{{ url_for('new_sop') }}" class="main-button" style="width: 300px; display: inline-block;">Create New SOP</a>
+  </div>
+  
+  {% if drafts %}
+  <div class="sop-section">
+    <h2>📝 Drafts</h2>
+    {% for sop in drafts %}
+    <a href="{{ url_for('edit_sop', sop_id=sop[1]) }}" class="sop-item">
+      <strong>{{ sop[2] }}</strong> - {{ sop[3] }}
+      <div style="color: #666; font-size: 14px; margin-top: 5px;">
+        Version: {{ sop[8] }}.{{ sop[9] }} | Owner: {{ sop[5] }} | Created: {{ sop[15] }}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  {% if pending %}
+  <div class="sop-section">
+    <h2>⏳ Pending Approval</h2>
+    {% for sop in pending %}
+    <a href="{{ url_for('edit_sop', sop_id=sop[1]) }}" class="sop-item">
+      <strong>{{ sop[2] }}</strong> - {{ sop[3] }}
+      <div style="color: #666; font-size: 14px; margin-top: 5px;">
+        Version: {{ sop[8] }}.{{ sop[9] }} | Owner: {{ sop[5] }} | Submitted: {{ sop[17] }}
+      </div>
+      {% if sop[20] == 1 and sop[21] == 0 %}
+      <div style="color: #8b5cf6; font-weight: 600; font-size: 13px; margin-top: 5px;">
+        📋 Awaiting faculty review
+      </div>
+      {% elif sop[20] == 1 and sop[21] == 1 %}
+      <div style="color: #8b5cf6; font-weight: 600; font-size: 13px; margin-top: 5px;">
+        📋 Awaiting lab manager review (faculty review complete)
+      </div>
+      {% else %}
+      <div style="color: #8b5cf6; font-weight: 600; font-size: 13px; margin-top: 5px;">
+        📋 Awaiting lab manager review
+      </div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  {% if courses %}
+  <h2>✅ Approved SOPs by Course</h2>
+  {% for course, sops in courses.items() %}
+  <div class="sop-section">
+    <h3>{{ course }}</h3>
+    {% for sop in sops %}
+    <a href="{{ url_for('edit_sop', sop_id=sop[1]) }}" class="sop-item">
+      <strong>{{ sop[2] }}</strong>
+      <div style="color: #666; font-size: 14px; margin-top: 5px;">
+        Version: {{ sop[11] }}.{{ sop[12] }} | Owner: {{ sop[5] }} | Approved: {{ sop[18] }}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endif %}
+  
+  {% if not drafts and not pending and not courses %}
+  <p style="text-align: center; color: #666; font-size: 18px; margin-top: 50px;">
+    No SOPs yet. Create your first SOP above!
+  </p>
+  {% endif %}
+{% endblock %}

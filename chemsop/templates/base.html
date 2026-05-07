@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}WSU Lab Management System{% endblock %}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background-color: white;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 10in;
+      padding: 20px;
+    }
+    
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    
+    h2 {
+      color: #333;
+      margin-top: 40px;
+      margin-bottom: 20px;
+      font-size: 22px;
+      text-align: center;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 40px;
+      font-size: 16px;
+    }
+    
+    .back-button {
+      display: inline-block;
+      margin-bottom: 20px;
+      padding: 10px 20px;
+      text-decoration: none;
+      color: black;
+      background-color: white;
+      border: 2px solid black;
+      border-radius: 5px;
+      transition: all 0.3s;
+      font-weight: 500;
+      vertical-align: middle;
+    }
+    
+    .back-button:hover {
+      background-color: #f3eff6;
+      color: black;
+    }
+    
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    
+    .main-button {
+      width: 300px;
+      padding: 20px;
+      font-size: 18px;
+      background-color: white;
+      color: black;
+      border: 2px solid black;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: block;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+    
+    .main-button:hover {
+      background-color: #f3eff6;
+      color: black;
+    }
+    
+    .form-container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 30px;
+      border: 2px solid black;
+      border-radius: 8px;
+      background-color: white;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+      box-sizing: border-box;
+      background-color: white;
+    }
+    
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: #888;
+    }
+    
+    .submit-button {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      background-color: white;
+      color: black;
+      border: 2px solid black;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+    
+    .submit-button:hover {
+      background-color: #f3eff6;
+      color: black;
+    }
+    
+    .message {
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      text-align: center;
+    }
+    
+    .message.success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .message.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .message.info {
+      background-color: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    .pending-approvals {
+      margin: 40px 0;
+      padding: 20px;
+      border: 2px solid #ffc107;
+      border-radius: 8px;
+      background-color: #fff3cd;
+    }
+    
+    .pending-approvals h2 {
+      color: #856404;
+      margin-top: 0;
+    }
+    
+    .approval-item {
+      padding: 15px;
+      margin-bottom: 15px;
+      background-color: white;
+      border: 2px solid black;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .approval-info {
+      flex: 1;
+    }
+    
+    .approval-button {
+      padding: 10px 20px;
+      background-color: white;
+      color: black;
+      text-decoration: none;
+      border-radius: 5px;
+      border: 2px solid black;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .approval-button:hover {
+      background-color: #f3eff6;
+      color: black;
+    }
+    
+    .user-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .user-item {
+      padding: 15px;
+      margin-bottom: 10px;
+      background-color: white;
+      border: 2px solid black;
+      border-radius: 5px;
+    }
+    
+    .sop-section {
+      margin: 40px 0;
+    }
+    
+    .sop-item {
+      padding: 15px;
+      margin-bottom: 10px;
+      background-color: white;
+      border: 2px solid black;
+      border-radius: 5px;
+      display: block;
+      text-decoration: none;
+      color: black;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .sop-item:hover {
+      background-color: #f3eff6;
+    }
+    
+    .status-badge {
+      padding: 5px 10px;
+      border-radius: 3px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    
+    .status-draft {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    
+    .status-pending {
+      background-color: #cfe2ff;
+      color: #084298;
+    }
+    
+    .status-approved {
+      background-color: #d1e7dd;
+      color: #0f5132;
+    }
+    
+    .diff-container {
+      margin: 20px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    
+    .diff-header {
+      padding: 10px;
+      background-color: #f8f9fa;
+      font-weight: bold;
+      border-bottom: 1px solid #ccc;
+    }
+    
+    .diff-content {
+      padding: 15px;
+      background-color: white;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .comment-item {
+      padding: 15px;
+      margin-bottom: 15px;
+      background-color: #f8f9fa;
+      border-left: 4px solid #007bff;
+      border-radius: 5px;
+    }
+    
+    .comment-header {
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    
+    .comment-body {
+      color: #666;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+    }
+    
+    .sop-info-bar {
+      padding: 20px;
+      margin: 20px 0;
+      background-color: white;
+      border: 2px solid black;
+      border-radius: 8px;
+    }
+    
+    .sop-info-bar > div {
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    
+    .header-buttons {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .edit-sop-button {
+      padding: 10px 20px;
+      background-color: white;
+      color: black;
+      text-decoration: none;
+      border: 2px solid black;
+      border-radius: 5px;
+      font-weight: 600;
+      transition: all 0.3s;
+      cursor: pointer;
+      display: inline-block;
+      margin: 0;
+      vertical-align: middle;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      line-height: normal;
+    }
+    
+    .edit-sop-button:hover {
+      background-color: #f3eff6;
+      color: black;
+    }
+    
+    .radio-group {
+      display: flex;
+      gap: 20px;
+      margin-top: 10px;
+    }
+    
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: normal;
+    }
+    
+    .radio-group input[type="radio"] {
+      width: auto;
+      cursor: pointer;
+    }
+  </style>
+  {% block extra_styles %}{% endblock %}
+</head>
+<body>
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="message {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

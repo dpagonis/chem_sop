@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Initial Setup - WSU Lab Management System{% endblock %}
+
+{% block content %}
+<style>
+  .setup-container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 40px;
+    background: white;
+    border: 2px solid #333;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .setup-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  
+  .setup-header h1 {
+    color: #a60f2d;
+    margin-bottom: 10px;
+    font-size: 32px;
+  }
+  
+  .setup-header p {
+    color: #666;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  
+  .welcome-text {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 30px;
+    border-left: 4px solid #a60f2d;
+  }
+  
+  .welcome-text h2 {
+    margin: 0 0 10px 0;
+    font-size: 20px;
+    color: #333;
+    text-align: left;
+  }
+  
+  .welcome-text p {
+    margin: 5px 0;
+    color: #666;
+    font-size: 14px;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.3s;
+  }
+  
+  .form-group input:focus {
+    outline: none;
+    border-color: #a60f2d;
+  }
+  
+  .pin-requirements {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+  
+  .pin-requirements h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #856404;
+  }
+  
+  .pin-requirements ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #856404;
+  }
+  
+  .pin-requirements li {
+    margin: 5px 0;
+  }
+  
+  .submit-button {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    font-weight: 600;
+    background-color: #a60f2d;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .submit-button:hover {
+    background-color: #8a0c24;
+  }
+  
+  .flash-messages {
+    margin-bottom: 20px;
+  }
+  
+  .flash-message {
+    padding: 12px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  
+  .flash-message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  
+  .flash-message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+</style>
+
+<div class="setup-container">
+  <div class="setup-header">
+    <h1>🚀 Initial Setup</h1>
+    <p>Welcome to WSU Lab Management System</p>
+  </div>
+  
+  <div class="welcome-text">
+    <h2>First Time Setup</h2>
+    <p>No administrator account exists yet. Please create your admin account to get started.</p>
+    <p><strong>This is a one-time setup.</strong> The admin will be able to create and approve other user accounts.</p>
+  </div>
+  
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-messages">
+        {% for category, message in messages %}
+          <div class="flash-message {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  
+  <form method="POST" action="{{ url_for('create_admin') }}">
+    <div class="form-group">
+      <label for="name">Administrator Name</label>
+      <input type="text" id="name" name="name" placeholder="Enter your full name" required autofocus>
+    </div>
+    
+    <div class="pin-requirements">
+      <h3>📌 PIN Requirements</h3>
+      <ul>
+        <li>Must be at least 6 characters long</li>
+        <li>Must contain at least 3 different characters</li>
+        <li>Can include numbers, letters, and special characters</li>
+      </ul>
+    </div>
+    
+    <div class="form-group">
+      <label for="pin">Administrator PIN</label>
+      <input type="password" id="pin" name="pin" placeholder="Enter your PIN" required>
+    </div>
+    
+    <div class="form-group">
+      <label for="confirm_pin">Confirm PIN</label>
+      <input type="password" id="confirm_pin" name="confirm_pin" placeholder="Re-enter your PIN" required>
+    </div>
+    
+    <button type="submit" class="submit-button">Create Admin Account</button>
+  </form>
+</div>
+{% endblock %}

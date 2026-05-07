@@ -1,0 +1,43 @@
+node_modules/
+*.db
+*.log
+.env
+.DS_Store
+
+# Lab data - don't commit actual content
+chemsop/SOPs/
+chemsop/logs/
+
+# Python packaging
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,787 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sop[2] }} - WSU Lab Management System{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .markdown-content {
+    white-space: pre-wrap;
+    line-height: 1.8;
+    color: #333;
+    font-size: 15px;
+  }
+  
+  /* Style markdown lists to show as bullets */
+  .markdown-content {
+    position: relative;
+  }
+</style>
+<script src="{{ url_for('static', filename='pin-popup.js') }}"></script>
+<script>
+  // Convert markdown lists to HTML lists after page load
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.markdown-content').forEach(function(el) {
+      let text = el.textContent;
+      let lines = text.split('\n');
+      let html = '';
+      let listStack = []; // Track nested list levels
+      
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        
+        // Check if line is a list item and get its indentation level
+        let match = line.match(/^(\s*)([-*+])\s+(.+)$/);
+        
+        if (match) {
+          let indent = match[1].length;
+          let content = match[3];
+          let level = Math.floor(indent / 2); // 2 spaces per level
+          
+          // Close lists if we're going back to a shallower level
+          while (listStack.length > level + 1) {
+            html += '</ul>';
+            listStack.pop();
+          }
+          
+          // Open new list if we're going deeper
+          if (listStack.length === level) {
+            // Apply different margins for nested lists vs outer lists
+            let ulMargin = level === 0 ? '10px 0' : '0px 0';
+            html += '<ul style="margin: ' + ulMargin + '; padding-left: 25px; list-style-type: disc;">';
+            listStack.push(level);
+          }
+          
+          // Top margin only for first-level items to group nested items visually
+          let liMargin = level === 0 ? '12px 0 0 0' : '0';
+          html += '<li style="margin: ' + liMargin + ';">' + content + '</li>';
+        } else {
+          // Not a list item - close all open lists
+          while (listStack.length > 0) {
+            html += '</ul>';
+            listStack.pop();
+          }
+          
+          if (line.trim()) {
+            html += '<div>' + line + '</div>';
+          } else {
+            html += '<br>';
+          }
+        }
+      }
+      
+      // Close any remaining open lists
+      while (listStack.length > 0) {
+        html += '</ul>';
+        listStack.pop();
+      }
+      
+      el.innerHTML = html;
+    });
+  });
+</script>
+{% endblock %}
+
+{% block content %}
+  <div class="header-buttons">
+    <a href="{{ url_for('sops') }}" class="back-button" style="margin-bottom: 0;">← Back to SOPs</a>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      {% if sop[7] == 'approved' %}
+      <form method="POST" action="{{ url_for('create_draft_from_approved', sop_id=sop[1]) }}" style="margin: 0; padding: 0; display: inline;">
+        <button type="submit" class="edit-sop-button">Edit SOP</button>
+      </form>
+      {% endif %}
+      {% if sop[7] == 'submitted' or sop[7] == 'approved' %}
+      <a href="{{ url_for('download_sop_md', sop_id=sop[1]) }}" class="back-button" style="margin-bottom: 0;">Download .md</a>
+      {% endif %}
+    </div>
+  </div>
+  
+  <h1>{{ sop[2] }}</h1>
+  
+  <div class="sop-info-bar">
+    <div><strong>Course:</strong> {{ sop[3] }}</div>
+    <div><strong>Owner:</strong> {{ sop[5] }}</div>
+    <div><strong>Status:</strong> 
+      {% if sop[7] == 'draft' %}📝 Draft
+      {% elif sop[7] == 'submitted' %}⏳ Pending Approval
+      {% elif sop[7] == 'approved' %}✅ Approved
+      {% endif %}
+    </div>
+    <div><strong>Version:</strong> {{ sop[8] }}.{{ sop[9] }}</div>
+  </div>
+  
+  <!-- DRAFT STATUS -->
+  {% if sop[7] == 'draft' %}
+  <!-- COMMENTS SECTION (Internal use - at top of draft editing) -->
+  {% if comments %}
+  <div class="form-container" style="margin-bottom: 20px; border-color: #ffc107; background: #fff3cd;">
+    <h3 style="margin-top: 0; color: #856404;">📝 Internal Comments</h3>
+    {% for comment in comments %}
+    <div style="border-bottom: 1px solid #ddd; padding: 15px 0;">
+      <div style="font-weight: bold;">{{ comment[3] }} ({{ comment[4] }})</div>
+      <div style="color: #666; font-size: 14px;">{{ comment[6] }}</div>
+      <div style="margin-top: 10px;">{{ comment[5] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  
+  <div class="form-container" id="draft-form" style="display: none;">
+    <h2>Edit SOP</h2>
+    
+    <!-- Download/Upload buttons -->
+    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; display: flex; gap: 15px; align-items: center;">
+      <div style="flex: 1;">
+        <strong>Offline Editing:</strong>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Download this SOP as a markdown file to edit offline, then upload to repopulate all fields.</p>
+      </div>
+      <a href="{{ url_for('download_sop_md', sop_id=sop[1]) }}" 
+         class="submit-button" 
+         style="text-decoration: none; padding: 10px 20px; white-space: nowrap;">
+        ⬇ Download MD
+      </a>
+      <button type="button" 
+              id="upload-md-btn" 
+              class="submit-button" 
+              style="padding: 10px 20px; white-space: nowrap; background: white; color: black; border: 2px solid black;">
+        ⬆ Upload MD
+      </button>
+      <input type="file" id="md-file-input" accept=".md" style="display: none;">
+    </div>
+    
+    <form method="POST" action="{{ url_for('edit_sop', sop_id=sop[1]) }}" id="edit-sop-form">
+      <input type="hidden" name="action" value="save">
+      
+      <div class="form-group">
+        <label for="title">Title:</label>
+        <input type="text" id="title" name="title" value="{{ sop[2] }}" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="course">Course:</label>
+        <input type="text" id="course" name="course" value="{{ sop[3] }}" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="ownerId">Owner:</label>
+        <select id="ownerId" name="ownerId" required>
+          {% for user in faculty_admin_users %}
+          <option value="{{ user[0] }}" {% if user[0] == sop[4] %}selected{% endif %}>
+            {{ user[1] }} ({{ user[2] }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <!-- Section-based editing -->
+      <h3 style="margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 10px;">SOP Sections</h3>
+      
+      {% for section_name in standard_sections %}
+      <div class="form-group" style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+        <label for="section_{{ section_name|replace(' ', '_') }}" style="font-size: 18px; font-weight: bold; color: #333;">
+          {{ section_name }}
+          {% if section_name == 'Lab Description' %}
+          <span style="font-size: 14px; font-weight: normal; color: #666;">(Auto-updated from course and owner fields)</span>
+          {% endif %}
+        </label>
+        <textarea id="section_{{ section_name|replace(' ', '_') }}" 
+                  name="section_{{ section_name }}" 
+                  rows="{% if section_name == 'Lab Description' %}3{% else %}8{% endif %}" 
+                  style="margin-top: 10px; font-family: monospace; {% if section_name == 'Lab Description' %}background: #e9ecef;{% endif %}"
+                  {% if section_name == 'Lab Description' %}readonly{% endif %}
+                  placeholder="Enter {{ section_name }} content here...">{% if section_name == 'Lab Description' %}Course: {{ sop[3] }}
+Owner: {{ sop[5] }}{% else %}{{ sections.get(section_name, '') }}{% endif %}</textarea>
+      </div>
+      {% endfor %}
+      
+      <div class="form-group">
+        <label style="margin-bottom: 10px;">Version Type: <span style="color: #dc3545;">*</span></label>
+        <div class="radio-group">
+          <label>
+            <input type="radio" name="versionType" value="major" {% if sop[20] == 1 %}checked{% endif %} required id="versionMajor">
+            <strong>Major Change</strong> - New features or significant modifications (increments X.0)
+          </label>
+          <label>
+            <input type="radio" name="versionType" value="minor" {% if sop[20] == 0 %}checked{% endif %} id="versionMinor">
+            <strong>Minor Change</strong> - Bug fixes or small improvements (increments 0.Y)
+          </label>
+        </div>
+      </div>
+      
+      <!-- Major change note -->
+      <div id="majorChangeNote" style="display: none; margin-top: 10px; padding: 10px 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; color: #856404; font-size: 14px;">
+        Major changes will be routed to any available Faculty Reviewer before lab manager approval.
+      </div>
+      
+      <button type="submit" class="submit-button">Save Draft</button>
+    </form>
+    
+    <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #ddd;">
+      <h3>Submit for Approval</h3>
+      <p style="color: #666; margin-bottom: 20px;">Ready to submit this SOP for approval? You'll need to verify your PIN.</p>
+      <button type="button" id="submit-for-approval-btn" class="submit-button">Submit for Approval</button>
+    </div>
+    
+    <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #ddd;">
+      <h3 style="color: #dc3545;">Discard Draft</h3>
+      <p style="color: #666; margin-bottom: 20px;">No longer need this draft? You can permanently delete it. This action cannot be undone.</p>
+      <button type="button" 
+              id="discard-draft-btn" 
+              style="padding: 12px 24px; background: white; color: #dc3545; border: 2px solid #dc3545; border-radius: 5px; cursor: pointer; font-weight: 600; transition: all 0.3s;"
+              onmouseover="this.style.backgroundColor='#dc3545'; this.style.color='white';"
+              onmouseout="this.style.backgroundColor='white'; this.style.color='#dc3545';">
+        Discard Draft
+      </button>
+    </div>
+  </div>
+  
+  <script>
+    // Require PIN verification before showing draft form
+    document.addEventListener('DOMContentLoaded', function() {
+      requireEditPin('{{ sop[1] }}', function() {
+        // Show form after PIN verification
+        var draftForm = document.getElementById('draft-form');
+        if (draftForm) {
+          draftForm.style.display = 'block';
+        }
+        
+        // Handle version type change to show/hide major change note
+        var versionMajor = document.getElementById('versionMajor');
+        var versionMinor = document.getElementById('versionMinor');
+        var majorChangeNote = document.getElementById('majorChangeNote');
+        
+        function updateMajorChangeNote() {
+          if (versionMajor && versionMajor.checked) {
+            majorChangeNote.style.display = 'block';
+          } else {
+            majorChangeNote.style.display = 'none';
+          }
+        }
+        
+        if (versionMajor) {
+          versionMajor.addEventListener('change', updateMajorChangeNote);
+        }
+        if (versionMinor) {
+          versionMinor.addEventListener('change', updateMajorChangeNote);
+        }
+        
+        // Initialize on load
+        updateMajorChangeNote();
+        
+        // Handle owner change - immediate transfer with PIN verification
+        var ownerIdSelect = document.getElementById('ownerId');
+        var originalOwnerId = '{{ sop[4] }}';
+        if (ownerIdSelect) {
+          ownerIdSelect.addEventListener('change', function(e) {
+            var newOwnerId = this.value;
+            var newOwnerText = this.options[this.selectedIndex].text;
+            
+            if (newOwnerId !== originalOwnerId) {
+              // Revert selection temporarily
+              this.value = originalOwnerId;
+              
+              // Trigger ownership transfer
+              transferSopOwnership('{{ sop[1] }}', newOwnerId, newOwnerText, function(success) {
+                if (success) {
+                  // Transfer successful, will redirect
+                  originalOwnerId = newOwnerId;
+                }
+              });
+            }
+          });
+        }
+        
+        // Attach event listeners AFTER form is visible
+        var submitBtn = document.getElementById('submit-for-approval-btn');
+        if (submitBtn) {
+          submitBtn.addEventListener('click', function() {
+            submitSopForApproval('{{ sop[1] }}');
+          });
+        }
+        
+        var discardBtn = document.getElementById('discard-draft-btn');
+        if (discardBtn) {
+          discardBtn.addEventListener('click', function() {
+            discardDraftSop('{{ sop[1] }}');
+          });
+        }
+        
+        // Upload markdown file functionality
+        var uploadBtn = document.getElementById('upload-md-btn');
+        var fileInput = document.getElementById('md-file-input');
+        
+        if (uploadBtn && fileInput) {
+          uploadBtn.addEventListener('click', function() {
+            fileInput.click();
+          });
+          
+          fileInput.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            
+            var formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('{{ url_for("upload_sop_md") }}', {
+              method: 'POST',
+              body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.success) {
+                // Populate title
+                if (data.title) {
+                  document.getElementById('title').value = data.title;
+                }
+                
+                // Populate sections
+                if (data.sections) {
+                  for (var sectionName in data.sections) {
+                    var sectionId = 'section_' + sectionName.replace(/ /g, '_');
+                    var textarea = document.getElementById(sectionId);
+                    if (textarea) {
+                      textarea.value = data.sections[sectionName] || '';
+                    }
+                  }
+                }
+                
+                alert('Markdown file uploaded successfully! All fields have been populated.');
+                
+                // Reset file input
+                fileInput.value = '';
+              } else {
+                alert('Error: ' + (data.error || 'Failed to upload file'));
+                fileInput.value = '';
+              }
+            })
+            .catch(error => {
+              console.error('Error:', error);
+              alert('Error uploading file');
+              fileInput.value = '';
+            });
+          });
+        }
+        
+        // Auto-update Lab Description section when course or owner changes
+        function updateMetadata() {
+          var courseField = document.getElementById('course');
+          var ownerField = document.getElementById('ownerId');
+          var metadataField = document.getElementById('section_Lab_Description');
+          
+          if (courseField && ownerField && metadataField) {
+            var course = courseField.value;
+            var ownerText = ownerField.options[ownerField.selectedIndex].text;
+            var ownerName = ownerText.split(' (')[0]; // Extract name without role
+            
+            metadataField.value = 'Course: ' + course + '\nOwner: ' + ownerName;
+          }
+        }
+        
+        // Add event listeners to course and owner fields
+        var courseField = document.getElementById('course');
+        var ownerField = document.getElementById('ownerId');
+        
+        if (courseField) {
+          courseField.addEventListener('input', updateMetadata);
+        }
+        if (ownerField) {
+          ownerField.addEventListener('change', updateMetadata);
+        }
+        
+        // Initialize metadata on load
+        updateMetadata();
+      });
+    });
+  </script>
+  {% endif %}
+  
+  <!-- PENDING APPROVAL STATUS -->
+  {% if sop[7] == 'submitted' %}
+  
+  <!-- DIFF SECTION (Wider container) -->
+  {% if diff_html %}
+  <div style="max-width: 100%; margin: 20px 0; padding: 30px; background: white; border: 2px solid black; border-radius: 8px;">
+    <h2 style="margin-top: 0;">Changes from Approved Version {{ sop[11] }}.{{ sop[12] }}</h2>
+    <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; overflow-x: auto;">
+      {{ diff_html|safe }}
+    </div>
+  </div>
+  {% endif %}
+  
+  <!-- FULL TEXT SECTION -->
+  <div class="form-container" style="max-width: 1200px; margin-top: 20px;">
+    <h2>Full Procedure</h2>
+    
+    <!-- Display sections -->
+    {% for section_name in standard_sections %}
+    {% if sections.get(section_name, '').strip() %}
+      {% if section_name == 'Reagent list' and chemical_safety_available and reagent_chemicals|length > 0 %}
+        <!-- Replace Reagent list section with chemical table -->
+        <div style="margin: 25px 0;">
+          <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+            <thead>
+              <tr style="background: #d3c2df !important;">
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Name</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Formula & Mass</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Particularly Hazardous</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Hazardous Waste</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Disposal</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Other Concerns</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Pictograms</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in reagent_chemicals %}
+              <tr style="border-bottom: 1px solid #ddd;">
+                {% if c.is_error is defined %}
+                  <td colspan="7" style="padding: 10px; color: #dc3545;">
+                    <strong>{{ c.name }}</strong> - Error: {{ c.error }}
+                    {% if c.details %}
+                      <div style="font-size: 0.9em; margin-top: 5px;">
+                        {% for detail in c.details %}
+                          <div style="margin-bottom: 3px;">{{ detail }}</div>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </td>
+                {% else %}
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    <div><strong>{{ c.full_name }}</strong></div>
+                    {% if c.name_difference %}
+                      <div style="color: #856404; font-size: 0.9em;">⚠️ (entered as: {{ c.name }})</div>
+                    {% endif %}
+                    {% if c.details %}
+                      <div style="font-size: 0.85em; margin-top: 5px; font-weight: normal;">
+                        {% for detail in c.details %}
+                          <div style="margin-bottom: 3px;">{{ detail }}</div>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.dp_molecule.simple_html %}
+                      <div><strong>{{ c.dp_molecule.simple_html|safe }}</strong></div><br>
+                    {% endif %}
+                    {% if c.dp_molecule and c.dp_molecule.molecular_weight %}
+                      <div>{{ c.dp_molecule.molecular_weight }} g/mol</div>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.WSU_particularly_hazardous %}
+                      {% if c.WSU_No_GHS %}<div>No safety information available</div>{% endif %}
+                      {% if c.WSU_highly_acute_toxin %}<div>Highly acute toxin</div>{% endif %}
+                      {% if c.WSU_reproductive_toxin %}<div>Reproductive toxin</div>{% endif %}
+                      {% if c.WSU_carcinogen %}<div>Carcinogen</div>{% endif %}
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.hazardous_waste %}
+                      {{ c.hazardous_waste_info }}
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.disposal_info %}
+                      {% for i in c.disposal_info %}
+                        <div>{{ i }}</div>
+                      {% endfor %}
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.flammability_class %}
+                      <div>Flammability: {{ c.flammability_class }}</div>
+                    {% endif %}
+                    {% if c.peroxide_class %}
+                      <div>Peroxide Class {{ c.peroxide_class }}: {{ c.peroxide_class_info }}</div>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.pictograms %}
+                      <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                        {% for pictogram in c.pictograms %}
+                          <img src="{{ url_for('static', filename='img/' + pictogram + '.svg') }}" 
+                               alt="{{ pictogram }}" 
+                               title="{{ pictogram }}" 
+                               style="width: 32px; height: 32px;">
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      {% else %}
+        <!-- Normal section display -->
+        <div style="margin: 25px 0;">
+          <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
+          <div class="markdown-content">{{ sections.get(section_name, '') }}</div>
+        </div>
+      {% endif %}
+    {% endif %}
+    {% endfor %}
+  </div>
+  
+  <!-- DECISION SECTION -->
+  <div class="form-container" style="max-width: 100%; margin-top: 20px;">
+    <h2>Approval Decision</h2>
+    
+    <!-- Show review status if major change -->
+    {% if sop[20] == 1 %}
+    <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+      <strong>Major Change Review Status:</strong><br>
+      {% if not sop[23] or sop[23] == 0 %}
+        📋 Awaiting faculty review (any Faculty Reviewer or Admin may approve)
+      {% else %}
+        ✓ Faculty approved - Awaiting lab manager final approval
+      {% endif %}
+    </div>
+    {% endif %}
+    
+    <div style="display: flex; gap: 20px;">
+      <!-- Approve Form -->
+      <div style="flex: 1;">
+        <h3>Approve SOP</h3>
+        <p style="color: #666;">
+          {% if sop[20] == 1 and (not sop[23] or sop[23] == 0) %}
+            Faculty reviewers (for major changes) or lab managers/admins
+          {% else %}
+            Lab managers and admins
+          {% endif %}
+        </p>
+        <button type="button" id="approve-btn" class="submit-button" style="background: white; color: black; border: 2px solid black;">Approve</button>
+      </div>
+      
+      <!-- Send Back Form -->
+      <div style="flex: 1;">
+        <h3>Send Back to Owner</h3>
+        <p style="color: #666;">
+          {% if sop[20] == 1 and (not sop[23] or sop[23] == 0) %}
+            Faculty reviewers (for major changes) or lab managers/admins
+          {% else %}
+            Lab managers and admins
+          {% endif %}
+        </p>
+        <div class="form-group">
+          <label for="sendBackComment">Comment (required):</label>
+          <textarea id="sendBackComment" rows="3" required></textarea>
+        </div>
+        <button type="button" id="send-back-btn" class="submit-button" style="background: white; color: black; border: 2px solid black;">Send Back</button>
+      </div>
+    </div>
+    
+    <!-- Pull Back Form (Owner Only) -->
+    <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #ddd;">
+      <h3>Pull Back to Draft</h3>
+      <p style="color: #666; margin-bottom: 20px;">Owner only - withdraw from approval process</p>
+      <button type="button" id="pull-back-btn" class="submit-button" style="background: white; color: black; border: 2px solid black;">Pull Back to Draft</button>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Approve button
+      var approveBtn = document.getElementById('approve-btn');
+      if (approveBtn) {
+        approveBtn.addEventListener('click', function() {
+          approveSop('{{ sop[1] }}', '');
+        });
+      }
+      
+      // Send back button
+      var sendBackBtn = document.getElementById('send-back-btn');
+      if (sendBackBtn) {
+        sendBackBtn.addEventListener('click', function() {
+          var comment = document.getElementById('sendBackComment').value;
+          if (!comment.trim()) {
+            alert('Comment is required when sending back');
+            return;
+          }
+          sendBackSop('{{ sop[1] }}', comment);
+        });
+      }
+      
+      // Pull back button
+      var pullBackBtn = document.getElementById('pull-back-btn');
+      if (pullBackBtn) {
+        pullBackBtn.addEventListener('click', function() {
+          pullBackSop('{{ sop[1] }}');
+        });
+      }
+    });
+  </script>
+  {% endif %}
+  
+  <!-- APPROVED STATUS -->
+  {% if sop[7] == 'approved' %}
+  
+  <div class="form-container" style="max-width: 1200px;">
+    
+    <!-- Display sections -->
+    {% for section_name in standard_sections %}
+    {% if section_name != 'Lab Description' and approved_sections.get(section_name, '').strip() %}
+      {% if section_name == 'Reagent list' and chemical_safety_available and approved_reagent_chemicals|length > 0 %}
+        <!-- Replace Reagent list section with chemical table -->
+        <div style="margin: 25px 0;">
+          <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+            <thead>
+              <tr style="background: #d3c2df !important;">
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Name</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Formula & Mass</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Particularly Hazardous</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Hazardous Waste</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Disposal</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Other Concerns</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Pictograms</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in approved_reagent_chemicals %}
+              <tr style="border-bottom: 1px solid #ddd;">
+                {% if c.is_error is defined %}
+                  <td colspan="7" style="padding: 10px; color: #dc3545;">
+                    <strong>{{ c.name }}</strong> - Error: {{ c.error }}
+                    {% if c.details %}
+                      <div style="font-size: 0.9em; margin-top: 5px;">
+                        {% for detail in c.details %}
+                          <div style="margin-bottom: 3px;">{{ detail }}</div>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </td>
+                {% else %}
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    <div><strong>{{ c.full_name }}</strong></div>
+                    {% if c.name_difference %}
+                      <div style="color: #856404; font-size: 0.9em;">⚠️ (entered as: {{ c.name }})</div>
+                    {% endif %}
+                    {% if c.details %}
+                      <div style="font-size: 0.85em; margin-top: 5px; font-weight: normal;">
+                        {% for detail in c.details %}
+                          <div style="margin-bottom: 3px;">{{ detail }}</div>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.dp_molecule.simple_html %}
+                      <div><strong>{{ c.dp_molecule.simple_html|safe }}</strong></div><br>
+                    {% endif %}
+                    {% if c.dp_molecule and c.dp_molecule.molecular_weight %}
+                      <div>{{ c.dp_molecule.molecular_weight }} g/mol</div>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.WSU_particularly_hazardous %}
+                      {% if c.WSU_No_GHS %}<div>No safety information available</div>{% endif %}
+                      {% if c.WSU_highly_acute_toxin %}<div>Highly acute toxin</div>{% endif %}
+                      {% if c.WSU_reproductive_toxin %}<div>Reproductive toxin</div>{% endif %}
+                      {% if c.WSU_carcinogen %}<div>Carcinogen</div>{% endif %}
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.hazardous_waste %}
+                      {{ c.hazardous_waste_info }}
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.disposal_info %}
+                      {% for i in c.disposal_info %}
+                        <div>{{ i }}</div>
+                      {% endfor %}
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.flammability_class %}
+                      <div>Flammability: {{ c.flammability_class }}</div>
+                    {% endif %}
+                    {% if c.peroxide_class %}
+                      <div>Peroxide Class {{ c.peroxide_class }}: {{ c.peroxide_class_info }}</div>
+                    {% endif %}
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if c.pictograms %}
+                      <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                        {% for pictogram in c.pictograms %}
+                          <img src="{{ url_for('static', filename='img/' + pictogram + '.svg') }}" 
+                               alt="{{ pictogram }}" 
+                               title="{{ pictogram }}" 
+                               style="width: 32px; height: 32px;">
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      {% else %}
+        <!-- Normal section display -->
+        <div style="margin: 25px 0;">
+          <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
+          <div class="markdown-content">{{ approved_sections.get(section_name, '') }}</div>
+        </div>
+      {% endif %}
+    {% endif %}
+    {% endfor %}
+  </div>
+  
+  <!-- Version and Approval Metadata -->
+  <div class="form-container" style="max-width: 1200px; margin-top: 20px; padding: 20px; background: #f8f9fa;">
+    <div style="color: #666;">
+      <strong>Approved Version:</strong> {{ sop[11] }}.{{ sop[12] }}<br>
+      {% if sop[22] %}
+      <strong>Approved:</strong> {{ sop[18] }} by {{ sop[22] }}<br>
+      {% else %}
+      <strong>Approved:</strong> {{ sop[18] }}<br>
+      {% endif %}
+      {% if sop[28] %}
+      <strong>Faculty Review:</strong> version {{ sop[29] }}.{{ sop[30] }} by {{ sop[28] }}
+      {% else %}
+      <span style="color: #999; font-style: italic;">No faculty review recorded</span>
+      {% endif %}
+    </div>
+  </div>
+  
+  <!-- Delete button at the bottom of the page -->
+  <div style="display: flex; justify-content: flex-end; margin-top: 40px; margin-bottom: 40px;">
+    <form method="POST" action="{{ url_for('delete_sop_form', sop_id=sop[1]) }}" id="delete-sop-form">
+      <input type="hidden" name="pin" id="delete-pin-input">
+      <button type="button" id="delete-sop-btn"
+              style="padding: 8px 16px; font-size: 14px; background: white; color: #dc3545; border: 2px solid #dc3545; border-radius: 5px; cursor: pointer; transition: all 0.3s;"
+              onmouseover="this.style.backgroundColor='#dc3545'; this.style.color='white';"
+              onmouseout="this.style.backgroundColor='white'; this.style.color='#dc3545';">
+        Delete SOP
+      </button>
+    </form>
+  </div>
+  
+  <script>
+    document.getElementById('delete-sop-btn').addEventListener('click', function() {
+      if (!confirm('Are you sure you want to delete this SOP? This action cannot be undone.')) {
+        return;
+      }
+      
+      showPinPopup({
+        title: 'Confirm Deletion',
+        message: 'Enter your PIN to confirm deletion (Owner or Admin only)',
+        onVerify: async function(pin) {
+          // Set PIN in hidden input and submit form
+          document.getElementById('delete-pin-input').value = pin;
+          document.getElementById('delete-sop-form').submit();
+          return { success: true };
+        }
+      });
+    });
+  </script>
+  {% endif %}
+{% endblock %}

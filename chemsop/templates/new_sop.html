@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Create New SOP - WSU Lab Management System{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('sops') }}" class="back-button">← Back to SOPs</a>
+  
+  <h1>Create New SOP</h1>
+  
+  <div class="form-container">
+    <p style="text-align: center; color: #666; margin-bottom: 30px;">
+      Only faculty and admin can create SOPs
+    </p>
+    
+    <form method="POST" action="{{ url_for('new_sop') }}">
+      <div class="form-group">
+        <label for="title">SOP Title:</label>
+        <input type="text" id="title" name="title" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="course">Course:</label>
+        {% if courses %}
+        <select id="courseSelect" name="courseSelect">
+          <option value="">Select existing course...</option>
+          {% for course in courses %}
+          <option value="{{ course }}">{{ course }}</option>
+          {% endfor %}
+        </select>
+        <div style="margin-top: 15px;">
+          <label for="courseNew">Or enter new course:</label>
+          <input type="text" id="courseNew" name="courseNew" placeholder="New course name">
+        </div>
+        {% else %}
+        <input type="text" id="course" name="course" required>
+        {% endif %}
+      </div>
+      
+      <div class="form-group">
+        <label for="creatorPin">Your PIN (to sign as creator):</label>
+        <input type="password" id="creatorPin" name="creatorPin" minlength="6" required>
+      </div>
+      
+      <button type="submit" class="submit-button">Create SOP</button>
+    </form>
+  </div>
+{% endblock %}

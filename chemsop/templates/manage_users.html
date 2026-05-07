@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - WSU Lab Management System{% endblock %}
+
+{% block extra_styles %}
+<script src="{{ url_for('static', filename='pin-popup.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+  <a href="{{ url_for('index') }}" class="back-button">← Back to Home</a>
+  
+  <h1>Manage Users</h1>
+  
+  <div class="form-container">
+    <h2>Register New User</h2>
+    <form method="POST" action="{{ url_for('request_user') }}">
+      <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="pin">PIN (minimum 6 characters, at least 3 different characters):</label>
+        <input type="password" id="pin" name="pin" minlength="6" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="role">Role:</label>
+        <select id="role" name="role" required>
+          <option value="">Select a role...</option>
+          <option value="faculty">Faculty</option>
+          <option value="faculty_reviewer">Faculty Reviewer</option>
+          <option value="lab_manager">Lab Manager</option>
+          <option value="general">General</option>
+        </select>
+      </div>
+      
+      <button type="submit" class="submit-button">Submit Request</button>
+    </form>
+  </div>
+  
+  {% if pending_approvals %}
+  <h2>Pending Approvals</h2>
+  <ul class="user-list">
+    {% for approval in pending_approvals %}
+    <li class="user-item">
+      <strong>{{ approval[1] }}</strong> - {{ approval[3] }}
+      <div style="color: #666; font-size: 14px;">Requested: {{ approval[4] }}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  
+  <h2>Current Users</h2>
+  {% if users %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Role</th>
+        <th>Created</th>
+        <th>Change Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>{{ user[1] }}</td>
+        <td>{{ user[2] }}</td>
+        <td>{{ user[3] }}</td>
+        <td>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="role-select-{{ user[0] }}" style="padding: 4px 8px; border: 1px solid #ccc; border-radius: 4px;">
+              <option value="faculty" {% if user[2] == 'faculty' %}selected{% endif %}>Faculty</option>
+              <option value="faculty_reviewer" {% if user[2] == 'faculty_reviewer' %}selected{% endif %}>Faculty Reviewer</option>
+              <option value="lab_manager" {% if user[2] == 'lab_manager' %}selected{% endif %}>Lab Manager</option>
+              <option value="general" {% if user[2] == 'general' %}selected{% endif %}>General</option>
+              <option value="admin" {% if user[2] == 'admin' %}selected{% endif %}>Admin</option>
+            </select>
+            <button type="button"
+                    onclick="changeUserRole({{ user[0] }}, document.getElementById('role-select-{{ user[0] }}').value)"
+                    style="padding: 4px 12px; background: white; color: black; border: 2px solid black; border-radius: 4px; cursor: pointer; font-weight: 600;">
+              Change
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No users yet.</p>
+  {% endif %}
+
+  <script>
+  function changeUserRole(userId, newRole) {
+    showPinPopup({
+      title: 'Change User Role',
+      message: 'Enter your PIN to change this user\'s role (Lab managers and admins only)',
+      onVerify: async (pin) => {
+        try {
+          const response = await fetch('/change-user-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, new_role: newRole, pin: pin })
+          });
+          const data = await response.json();
+          if (data.success) {
+            window.location.reload();
+          }
+          return data;
+        } catch (error) {
+          return { success: false, error: 'Request failed. Please try again.' };
+        }
+      }
+    });
+  }
+  </script>
+  
+  <h2>Approval History</h2>
+  {% if approval_log %}
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Role</th>
+        <th>Approved By</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in approval_log %}
+      <tr>
+        <td>{{ log[1] }}</td>
+        <td>{{ log[2] }}</td>
+        <td>{{ log[3] }} ({{ log[4] }})</td>
+        <td>{{ log[5] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No approval history yet.</p>
+  {% endif %}
+{% endblock %}

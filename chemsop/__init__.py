@@ -5,8 +5,13 @@ A web application for chemistry lab SOP version control/approval
 and electronic lab notebook with PIN-based signature authentication.
 """
 
-__version__ = "0.1.0"
 __author__ = "Demetrios Pagonis"
+
+from importlib.metadata import version, PackageNotFoundError
+try:
+    __version__ = version("chemsop")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
 # Import main components for easier access
 from .database import db, init_db
@@ -24,6 +29,8 @@ from .sop_utils import (
     STANDARD_SOP_SECTIONS,
     sanitize_filename
 )
+
+
 
 __all__ = [
     'db',

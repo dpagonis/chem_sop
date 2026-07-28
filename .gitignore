@@ -7,6 +7,8 @@ node_modules/
 # Lab data - don't commit actual content
 chemsop/SOPs/
 chemsop/logs/
+SOPs/
+lab_management.db
 
 # Python packaging
 __pycache__/

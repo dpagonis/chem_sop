@@ -11,6 +11,8 @@ from datetime import datetime
 import io
 import re
 
+from chemsop import __version__ as CHEMSOP_VERSION
+
 try:
     from chemical_safety.chemical import chemical
     CHEMICAL_SAFETY_AVAILABLE = True
@@ -174,7 +176,7 @@ def create_admin():
 def index():
     cursor = db.execute('SELECT * FROM pending_approvals ORDER BY created_at ASC')
     pending_approvals = cursor.fetchall()
-    return render_template('index.html', pending_approvals=pending_approvals)
+    return render_template('index.html', pending_approvals=pending_approvals, version=CHEMSOP_VERSION)
 
 # --- USER MANAGEMENT ---
 @app.route('/manage-users', methods=['GET'])
@@ -529,8 +531,20 @@ def submit_sop():
     # Verify owner PIN
     cursor = db.execute('SELECT * FROM users WHERE id = ?', (sop_owner_id,))
     owner = cursor.fetchone()
+
+    cursor = db.execute('SELECT * FROM users')
+    users = cursor.fetchall()
     
-    if not owner or not bcrypt.checkpw(pin.encode('utf-8'), owner[2].encode('utf-8')):
+    authorized_user = None
+    for user in users:
+        user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
+        if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
+            # User must be either the owner or an admin
+            if user_id == owner_id or role == 'admin':
+                authorized_user = {'id': user_id, 'name': name, 'role': role}
+            break
+    
+    if not authorized_user:
         return jsonify({'success': False, 'error': 'Invalid PIN'})
     
     # Save changes first (DO NOT increment version - only on approval)
@@ -1268,11 +1282,24 @@ def pull_back_sop_api():
         return jsonify({'success': False, 'error': 'Only submitted SOPs can be pulled back'})
     
     # Verify owner PIN
-    cursor = db.execute('SELECT * FROM users WHERE id = ?', (sop[4],))
-    owner = cursor.fetchone()
     
-    if not owner or not bcrypt.checkpw(pin.encode('utf-8'), owner[2].encode('utf-8')):
+    owner_id = sop[4]
+
+    cursor = db.execute('SELECT * FROM users')
+    users = cursor.fetchall()
+    
+    authorized_user = None
+    for user in users:
+        user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
+        if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
+            # User must be either the owner or an admin
+            if user_id == owner_id or role == 'admin':
+                authorized_user = {'id': user_id, 'name': name, 'role': role}
+            break
+    
+    if not authorized_user:
         return jsonify({'success': False, 'error': 'Invalid PIN'})
+
     
     # Update status
     db.execute(
@@ -1290,7 +1317,7 @@ def pull_back_sop_api():
     db.execute(
         '''INSERT INTO sop_log (sop_id, action, user_id, user_name, user_role, details, version_major, version_minor) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-        (sop_id, 'pulled_back', owner[0], owner[1], owner[3], 'Pulled back to draft', sop[8], sop[9])
+        (sop_id, 'pulled_back', authorized_user['id'], authorized_user['name'], authorized_user['role'], 'Pulled back to draft', sop[8], sop[9])
     )
     db.commit()
     

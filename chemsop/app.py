@@ -454,16 +454,35 @@ def verify_owner_pin():
     owner_id = sop[0]
     
     # Get owner's PIN hash
-    cursor = db.execute('SELECT pin_hash FROM users WHERE id = ?', (owner_id,))
-    user = cursor.fetchone()
+    # cursor = db.execute('SELECT pin_hash FROM users WHERE id = ?', (owner_id,))
+    # user = cursor.fetchone()
     
-    if not user:
-        return jsonify({'success': False, 'error': 'Owner not found'})
+    # if not user:
+    #     return jsonify({'success': False, 'error': 'Owner not found'})
     
-    # Verify PIN
-    if bcrypt.checkpw(pin.encode('utf-8'), user[0].encode('utf-8')):
+    # # Verify PIN
+    # if bcrypt.checkpw(pin.encode('utf-8'), user[0].encode('utf-8')):
+    #     return jsonify({'success': True})
+    # else:
+    #     return jsonify({'success': False, 'error': 'Invalid PIN'})
+
+     # Verify PIN and check if user is owner or admin
+
+    cursor = db.execute('SELECT * FROM users')
+    users = cursor.fetchall()
+    
+    authorized_user = None
+    for user in users:
+        user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
+        if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
+            # User must be either the owner or an admin
+            if user_id == owner_id or role == 'admin':
+                authorized_user = {'id': user_id, 'name': name, 'role': role}
+            break
+
+    if authorized_user:
         return jsonify({'success': True})
-    else:
+    if not authorized_user:
         return jsonify({'success': False, 'error': 'Invalid PIN'})
 
 @app.route('/submit-sop', methods=['POST'])

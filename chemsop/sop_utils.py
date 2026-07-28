@@ -7,10 +7,11 @@ import re
 # Standard SOP sections (in order)
 STANDARD_SOP_SECTIONS = [
     'Lab Description',
-    'Reagent list',
-    'Chemicals to prepare',
-    'Laboratory setup',
-    'Waste streams'
+    'Reagent List',
+    'Lab Supplies and Equipment',
+    'Chemicals to Prepare',
+    'Laboratory Setup',
+    'Waste Streams'
 ]
 
 def generate_sop_id():

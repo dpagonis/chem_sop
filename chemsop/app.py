@@ -454,6 +454,8 @@ def verify_owner_pin():
         return jsonify({'success': False, 'error': 'SOP not found'})
     
     owner_id = sop[0]
+
+    print(f"sop:{sop_id}, owner:{owner_id}")
     
     # Get owner's PIN hash
     # cursor = db.execute('SELECT pin_hash FROM users WHERE id = ?', (owner_id,))
@@ -478,7 +480,7 @@ def verify_owner_pin():
         user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
         if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
             # User must be either the owner or an admin
-            if user_id == owner_id or role == 'admin':
+            if int(user_id) == int(owner_id) or role == 'admin':
                 authorized_user = {'id': user_id, 'name': name, 'role': role}
             break
 
@@ -534,13 +536,14 @@ def submit_sop():
 
     cursor = db.execute('SELECT * FROM users')
     users = cursor.fetchall()
+
     
     authorized_user = None
     for user in users:
         user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
         if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
             # User must be either the owner or an admin
-            if user_id == owner_id or role == 'admin':
+            if int(user_id) == int(owner_id) or role == 'admin':
                 authorized_user = {'id': user_id, 'name': name, 'role': role}
             break
     
@@ -626,7 +629,7 @@ def delete_sop():
         user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
         if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
             # User must be either the owner or an admin
-            if user_id == sop_owner_id or role == 'admin':
+            if int(user_id) == int(sop_owner_id) or role == 'admin':
                 authorized_user = {'id': user_id, 'name': name, 'role': role}
             break
     
@@ -684,7 +687,7 @@ def delete_sop_form(sop_id):
         user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
         if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
             # User must be either the owner or an admin
-            if user_id == sop_owner_id or role == 'admin':
+            if int(user_id) == int(sop_owner_id) or role == 'admin':
                 authorized_user = {'id': user_id, 'name': name, 'role': role}
             break
     
@@ -1293,7 +1296,7 @@ def pull_back_sop_api():
         user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
         if bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
             # User must be either the owner or an admin
-            if user_id == owner_id or role == 'admin':
+            if int(user_id) == int(owner_id) or role == 'admin':
                 authorized_user = {'id': user_id, 'name': name, 'role': role}
             break
     

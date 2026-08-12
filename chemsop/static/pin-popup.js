@@ -160,7 +160,7 @@ function submitSopForApproval(sopId) {
   
   // Collect sections - now building markdown from sections
   const sections = {};
-  const sectionNames = ['Lab Description', 'Reagent list', 'Chemicals to prepare', 'Laboratory setup', 'Waste streams'];
+  const sectionNames = ['Lab Description', 'Reagent list', 'Lab supplies and equipment', 'Chemicals to prepare', 'Laboratory setup', 'Waste streams'];
   
   for (const sectionName of sectionNames) {
     const sectionId = 'section_' + sectionName.replace(/ /g, '_');

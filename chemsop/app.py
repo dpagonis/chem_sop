@@ -10,6 +10,8 @@ import os
 from datetime import datetime
 import io
 import re
+import zipfile
+import tempfile
 
 from chemsop import __version__ as CHEMSOP_VERSION
 
@@ -576,8 +578,8 @@ def submit_sop():
     db.commit()
     
     # Save procedure to file
-    save_sop_file(sop_id, 'submitted', course, procedure)
-    
+    fOut = save_sop_file(sop_id, 'submitted', course, procedure)
+
     # Move to submitted folder
     if old_course != course or old_status != 'submitted':
         move_sop_directory(sop_id, old_status, 'submitted', old_course, course)
@@ -1537,7 +1539,7 @@ def edit_sop(sop_id):
     
     # POST - handle actions based on the button pressed
     action = request.form.get('action')
-    
+    print("action:",action)
     if action == 'save':
         return handle_save_sop(sop_id, sop)
     elif action == 'submit':
@@ -1602,96 +1604,101 @@ def handle_save_sop(sop_id, sop):
     return redirect(url_for('sops'))
 
 def handle_submit_sop(sop_id, sop):
-    owner_pin = request.form.get('ownerPin')
+    raise RuntimeError("called handle_submit_sop")  
+
+    # print("**handle_submit_sop called!")
+    # owner_pin = request.form.get('ownerPin')
     
-    if not owner_pin:
-        flash('Owner PIN is required', 'error')
-        return redirect(url_for('edit_sop', sop_id=sop_id))
+    # if not owner_pin:
+    #     flash('Owner PIN is required', 'error')
+    #     return redirect(url_for('edit_sop', sop_id=sop_id))
     
-    sop_owner_id = sop[4]
-    sop_course = sop[3]
-    sop_status = sop[7]
+    # sop_owner_id = sop[4]
+    # sop_course = sop[3]
+    # sop_status = sop[7]
     
-    if sop_status != 'draft':
-        flash('Only draft SOPs can be submitted', 'error')
-        return redirect(url_for('edit_sop', sop_id=sop_id))
+    # if sop_status != 'draft':
+    #     flash('Only draft SOPs can be submitted', 'error')
+    #     return redirect(url_for('edit_sop', sop_id=sop_id))
     
-    # Verify owner PIN
-    cursor = db.execute('SELECT * FROM users WHERE id = ?', (sop_owner_id,))
-    owner = cursor.fetchone()
+    # # Verify owner PIN
+    # cursor = db.execute('SELECT * FROM users WHERE id = ?', (sop_owner_id,))
+    # owner = cursor.fetchone()
     
-    if not owner or not bcrypt.checkpw(owner_pin.encode('utf-8'), owner[2].encode('utf-8')):
-        flash('Invalid owner PIN', 'error')
-        return redirect(url_for('edit_sop', sop_id=sop_id))
+    # if not owner or not bcrypt.checkpw(owner_pin.encode('utf-8'), owner[2].encode('utf-8')):
+    #     flash('Invalid owner PIN', 'error')
+    #     return redirect(url_for('edit_sop', sop_id=sop_id))
     
-    # Update status
-    db.execute(
-        '''UPDATE sops 
-           SET status = 'submitted', submitted_at = CURRENT_TIMESTAMP
-           WHERE sop_id = ?''',
-        (sop_id,)
-    )
-    db.commit()
+    # # Update status
+    # db.execute(
+    #     '''UPDATE sops 
+    #        SET status = 'submitted', submitted_at = CURRENT_TIMESTAMP
+    #        WHERE sop_id = ?''',
+    #     (sop_id,)
+    # )
+    # db.commit()
     
-    # Move to pending approval folder
-    move_sop_directory(sop_id, 'draft', 'submitted', sop_course, sop_course)
+    # # Move to pending approval folder
+    # move_sop_directory(sop_id, 'draft', 'submitted', sop_course, sop_course)
     
-    # Log action
-    db.execute(
-        '''INSERT INTO sop_log (sop_id, action, user_id, user_name, user_role, details, version_major, version_minor) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-        (sop_id, 'submitted', owner[0], owner[1], owner[3], 'Submitted for approval', sop[8], sop[9])
-    )
-    db.commit()
+    # # Log action
+    # db.execute(
+    #     '''INSERT INTO sop_log (sop_id, action, user_id, user_name, user_role, details, version_major, version_minor) 
+    #        VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+    #     (sop_id, 'submitted', owner[0], owner[1], owner[3], 'Submitted for approval', sop[8], sop[9])
+    # )
+    # db.commit()
     
-    flash('SOP submitted for approval', 'success')
-    return redirect(url_for('sops'))
+    # flash('SOP submitted for approval', 'success')
+    # return redirect(url_for('sops'))
 
 def handle_pull_back_sop(sop_id, sop):
-    owner_pin = request.form.get('ownerPin')
+    raise RuntimeError("called handle_pull_back_sop")    
+
+    # owner_pin = request.form.get('ownerPin')
     
-    if not owner_pin:
-        flash('Owner PIN is required', 'error')
-        return redirect(url_for('edit_sop', sop_id=sop_id))
+    # if not owner_pin:
+    #     flash('Owner PIN is required', 'error')
+    #     return redirect(url_for('edit_sop', sop_id=sop_id))
     
-    sop_owner_id = sop[4]
-    sop_course = sop[3]
-    sop_status = sop[7]
+    # sop_owner_id = sop[4]
+    # sop_course = sop[3]
+    # sop_status = sop[7]
     
-    if sop_status != 'submitted':
-        flash('Only submitted SOPs can be pulled back', 'error')
-        return redirect(url_for('edit_sop', sop_id=sop_id))
+    # if sop_status != 'submitted':
+    #     flash('Only submitted SOPs can be pulled back', 'error')
+    #     return redirect(url_for('edit_sop', sop_id=sop_id))
     
-    # Verify owner PIN
-    cursor = db.execute('SELECT * FROM users WHERE id = ?', (sop_owner_id,))
-    owner = cursor.fetchone()
+    # # Verify owner PIN
+    # cursor = db.execute('SELECT * FROM users WHERE id = ?', (sop_owner_id,))
+    # owner = cursor.fetchone()
     
-    if not owner or not bcrypt.checkpw(owner_pin.encode('utf-8'), owner[2].encode('utf-8')):
-        flash('Invalid owner PIN', 'error')
-        return redirect(url_for('edit_sop', sop_id=sop_id))
+    # if not owner or not bcrypt.checkpw(owner_pin.encode('utf-8'), owner[2].encode('utf-8')):
+    #     flash('Invalid owner PIN', 'error')
+    #     return redirect(url_for('edit_sop', sop_id=sop_id))
     
-    # Update status
-    db.execute(
-        '''UPDATE sops 
-           SET status = 'draft'
-           WHERE sop_id = ?''',
-        (sop_id,)
-    )
-    db.commit()
+    # # Update status
+    # db.execute(
+    #     '''UPDATE sops 
+    #        SET status = 'draft'
+    #        WHERE sop_id = ?''',
+    #     (sop_id,)
+    # )
+    # db.commit()
     
-    # Move back to draft folder
-    move_sop_directory(sop_id, 'submitted', 'draft', sop_course, sop_course)
+    # # Move back to draft folder
+    # move_sop_directory(sop_id, 'submitted', 'draft', sop_course, sop_course)
     
-    # Log action
-    db.execute(
-        '''INSERT INTO sop_log (sop_id, action, user_id, user_name, user_role, details, version_major, version_minor) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-        (sop_id, 'pulled_back', owner[0], owner[1], owner[3], 'Pulled back to draft', sop[8], sop[9])
-    )
-    db.commit()
+    # # Log action
+    # db.execute(
+    #     '''INSERT INTO sop_log (sop_id, action, user_id, user_name, user_role, details, version_major, version_minor) 
+    #        VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+    #     (sop_id, 'pulled_back', owner[0], owner[1], owner[3], 'Pulled back to draft', sop[8], sop[9])
+    # )
+    # db.commit()
     
-    flash('SOP pulled back to draft', 'success')
-    return redirect(url_for('sops'))
+    # flash('SOP pulled back to draft', 'success')
+    # return redirect(url_for('sops'))
 
 def handle_approve_sop(sop_id, sop):
     approver_pin = request.form.get('approverPin')
@@ -1962,6 +1969,87 @@ def upload_sop_md():
         'title': title,
         'sections': sections
     })
+
+@app.route('/download-all-sops', methods=['POST'])
+def download_all_sops():
+    """Download all SOPs as a ZIP file with admin PIN verification"""
+    data = request.get_json()
+    pin = data.get('pin')
+    
+    if not pin:
+        return jsonify({'success': False, 'error': 'PIN is required'})
+    
+    # Verify admin PIN
+    cursor = db.execute('SELECT * FROM users')
+    users = cursor.fetchall()
+    
+    admin_user = None
+    for user in users:
+        user_id, name, pin_hash, role = user[0], user[1], user[2], user[3]
+        if role == 'admin' and bcrypt.checkpw(pin.encode('utf-8'), pin_hash.encode('utf-8')):
+            admin_user = {'id': user_id, 'name': name, 'role': role}
+            break
+    
+    if not admin_user:
+        return jsonify({'success': False, 'error': 'Invalid PIN or insufficient permissions. Admin access required.'})
+    
+    # Create a temporary zip file
+    base_dir = 'SOPs'
+    
+    if not os.path.exists(base_dir):
+        return jsonify({'success': False, 'error': 'SOPs directory not found'})
+    
+    # Create temp file for zip
+    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
+    temp_zip_path = temp_zip.name
+    temp_zip.close()
+    
+    try:
+        # Create zip file
+        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add all SOPs directory files
+            for root, dirs, files in os.walk(base_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # Add file to zip with relative path
+                    arcname = os.path.relpath(file_path, os.path.dirname(base_dir))
+                    zipf.write(file_path, arcname)
+            
+            # Add database file
+            db_file = 'lab_management.db'
+            if os.path.exists(db_file):
+                zipf.write(db_file, db_file)
+        
+        # Log action
+        db.execute(
+            '''INSERT INTO sop_log (sop_id, action, user_id, user_name, user_role, details, version_major, version_minor) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            ('ALL', 'downloaded_all', admin_user['id'], admin_user['name'], admin_user['role'], 
+             'Downloaded all SOPs and database as ZIP', 0, 0)
+        )
+        db.commit()
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        download_name = f'SOPs_backup_{timestamp}.zip'
+        
+        # Send file and clean up
+        return send_file(
+            temp_zip_path,
+            as_attachment=True,
+            download_name=download_name,
+            mimetype='application/zip'
+        )
+    
+    except Exception as e:
+        # Clean up temp file on error
+        if os.path.exists(temp_zip_path):
+            os.unlink(temp_zip_path)
+        return jsonify({'success': False, 'error': f'Failed to create zip file: {str(e)}'})
+    
+    finally:
+        # Schedule temp file deletion after send (Flask handles this automatically)
+        pass
 
 # --- RUN APP ---
 def main():

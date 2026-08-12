@@ -3,6 +3,41 @@
 {% block title %}SOPs - WSU Lab Management System{% endblock %}
 
 {% block content %}
+  <script>
+    function downloadAllSOPs() {
+      const pin = prompt('Enter Admin PIN to download all SOPs:');
+      if (!pin) return;
+      
+      fetch('/download-all-sops', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({pin: pin})
+      })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(data => {
+            throw new Error(data.error || 'Download failed');
+          });
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'SOPs_backup_' + new Date().toISOString().slice(0,19).replace(/[:-]/g, '').replace('T', '_') + '.zip';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        alert('SOPs downloaded successfully!');
+      })
+      .catch(error => {
+        alert('Error: ' + error.message);
+      });
+    }
+  </script>
   <a href="{{ url_for('index') }}" class="back-button">← Back to Home</a>
   
   <h1>Standard Operating Procedures (SOPs)</h1>
@@ -74,4 +109,8 @@
     No SOPs yet. Create your first SOP above!
   </p>
   {% endif %}
+  
+  <div style="text-align: center; margin: 50px 0 30px 0;">
+    <button onclick="downloadAllSOPs()" class="main-button" style="width: 300px; display: inline-block;">📥 Download All SOPs</button>
+  </div>
 {% endblock %}

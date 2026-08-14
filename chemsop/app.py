@@ -54,6 +54,7 @@ def parse_reagent_list(reagent_text):
     """
     Parse reagent list text and extract first-level list items (chemical names)
     with their second-level details.
+    Accepts either bulleted lists or plain text (one chemical per line).
     Returns a list of dicts: [{'name': 'Chemical Name', 'details': ['detail1', 'detail2']}, ...]
     """
     if not reagent_text:
@@ -83,6 +84,18 @@ def parse_reagent_list(reagent_text):
             if second_level_match and current_reagent:
                 detail = second_level_match.group(1).strip()
                 current_reagent['details'].append(detail)
+            else:
+                # Plain text line (no bullet) - treat as chemical name if not indented and not empty
+                plain_line = line.strip()
+                if plain_line and not line.startswith((' ', '\t')):
+                    # Save previous reagent if exists
+                    if current_reagent:
+                        reagents.append(current_reagent)
+                    # Clean the chemical name
+                    chem_name = re.sub(r'\([^)]*\)$', '', plain_line).strip()
+                    chem_name = re.sub(r',\s*\d+.*$', '', chem_name).strip()
+                    if chem_name:
+                        current_reagent = {'name': chem_name, 'details': []}
     
     # Don't forget the last reagent
     if current_reagent:
@@ -1461,6 +1474,51 @@ def create_draft_from_approved(sop_id):
     
     flash(f'New draft created from approved SOP. Original remains in {approved_sop[3]}.', 'success')
     return redirect(url_for('edit_sop', sop_id=new_sop_id))
+
+@app.route('/preview-reagents', methods=['POST'])
+def preview_reagents():
+    """Preview chemical table for reagent list"""
+    if not CHEMICAL_SAFETY_AVAILABLE:
+        return jsonify({'error': 'Chemical safety package not available'}), 400
+    
+    reagent_text = request.json.get('reagent_text', '')
+    if not reagent_text:
+        return jsonify({'chemicals': []})
+    
+    # Parse and lookup chemicals
+    reagent_names = parse_reagent_list(reagent_text)
+    chemicals = lookup_chemicals(reagent_names)
+    
+    # Convert chemical objects to dictionaries for JSON serialization
+    result = []
+    for c in chemicals:
+        chem_dict = {
+            'name': getattr(c, 'name', ''),
+            'full_name': getattr(c, 'full_name', ''),
+            'name_difference': getattr(c, 'name_difference', False),
+            'details': getattr(c, 'details', []),
+            'is_error': getattr(c, 'is_error', False),
+            'error': getattr(c, 'error', None),
+            'dp_molecule': {
+                'simple_html': getattr(c.dp_molecule, 'simple_html', None) if hasattr(c, 'dp_molecule') and c.dp_molecule else None,
+                'molecular_weight': c.dp_molecule.molecular_weight.as_num() if hasattr(c, 'dp_molecule') and c.dp_molecule else None,
+            } if hasattr(c, 'dp_molecule') else None,
+            'WSU_particularly_hazardous': getattr(c, 'WSU_particularly_hazardous', False),
+            'WSU_No_GHS': getattr(c, 'WSU_No_GHS', False),
+            'WSU_highly_acute_toxin': getattr(c, 'WSU_highly_acute_toxin', False),
+            'WSU_reproductive_toxin': getattr(c, 'WSU_reproductive_toxin', False),
+            'WSU_carcinogen': getattr(c, 'WSU_carcinogen', False),
+            'hazardous_waste': getattr(c, 'hazardous_waste', False),
+            'hazardous_waste_info': getattr(c, 'hazardous_waste_info', ''),
+            'disposal_info': getattr(c, 'disposal_info', []),
+            'flammability_class': getattr(c, 'flammability_class', None),
+            'peroxide_class': getattr(c, 'peroxide_class', None),
+            'peroxide_class_info': getattr(c, 'peroxide_class_info', None),
+            'pictograms': getattr(c, 'pictograms', []),
+        }
+        result.append(chem_dict)
+    
+    return jsonify({'chemicals': result})
 
 @app.route('/edit-sop/<sop_id>', methods=['GET', 'POST'])
 def edit_sop(sop_id):

@@ -1,5 +1,103 @@
 {% extends "base.html" %}
 
+{% macro render_chemical_table(chemicals) %}
+<div style="overflow-x: auto;">
+  <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+  <thead>
+    <tr style="background: #d3c2df !important;">
+      <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Name</th>
+      <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Formula & Mass</th>
+      <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Particularly Hazardous</th>
+      <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Hazardous Waste</th>
+      <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Disposal</th>
+      <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Other Concerns</th>
+      <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Pictograms</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in chemicals %}
+    <tr style="border-bottom: 1px solid #ddd;">
+      {% if c.is_error is defined %}
+        <td colspan="7" style="padding: 10px; color: #dc3545;">
+          <strong>{{ c.name }}</strong> - Error: {{ c.error }}
+          {% if c.details %}
+            <div style="font-size: 0.9em; margin-top: 5px;">
+              {% for detail in c.details %}
+                <div style="margin-bottom: 3px;">{{ detail }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </td>
+      {% else %}
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          <div><strong>{{ c.full_name }}</strong></div>
+          {% if c.name_difference %}
+            <div style="color: #856404; font-size: 0.9em;">⚠️ (entered as: {{ c.name }})</div>
+          {% endif %}
+          {% if c.details %}
+            <div style="font-size: 0.85em; margin-top: 5px; font-weight: normal;">
+              {% for detail in c.details %}
+                <div style="margin-bottom: 3px;">{{ detail }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if c.dp_molecule.simple_html %}
+            <div><strong>{{ c.dp_molecule.simple_html|safe }}</strong></div><br>
+          {% endif %}
+          {% if c.dp_molecule and c.dp_molecule.molecular_weight %}
+            <div>{{ c.dp_molecule.molecular_weight }} g/mol</div>
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if c.WSU_particularly_hazardous %}
+            {% if c.WSU_No_GHS %}<div>No safety information available</div>{% endif %}
+            {% if c.WSU_highly_acute_toxin %}<div>Highly acute toxin</div>{% endif %}
+            {% if c.WSU_reproductive_toxin %}<div>Reproductive toxin</div>{% endif %}
+            {% if c.WSU_carcinogen %}<div>Carcinogen</div>{% endif %}
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if c.hazardous_waste %}
+            {{ c.hazardous_waste_info }}
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if c.disposal_info %}
+            {% for i in c.disposal_info %}
+              <div>{{ i }}</div>
+            {% endfor %}
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if c.flammability_class %}
+            <div>Flammability: {{ c.flammability_class }}</div>
+          {% endif %}
+          {% if c.peroxide_class %}
+            <div>Peroxide Class {{ c.peroxide_class }}: {{ c.peroxide_class_info }}</div>
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if c.pictograms %}
+            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+              {% for pictogram in c.pictograms %}
+                <img src="{{ url_for('static', filename='img/' + pictogram + '.svg') }}" 
+                     alt="{{ pictogram }}" 
+                     title="{{ pictogram }}" 
+                     style="width: 32px; height: 32px;">
+              {% endfor %}
+            </div>
+          {% endif %}
+        </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endmacro %}
+
 {% block title %}{{ sop[2] }} - WSU Lab Management System{% endblock %}
 
 {% block extra_styles %}
@@ -126,7 +224,7 @@
   </div>
   {% endif %}
   
-  <div class="form-container" id="draft-form" style="display: none;">
+  <div class="form-container" id="draft-form" style="display: none; max-width: 1200px;">
     <h2>Edit SOP</h2>
     
     <!-- Download/Upload buttons -->
@@ -184,13 +282,38 @@
           <span style="font-size: 14px; font-weight: normal; color: #666;">(Auto-updated from course and owner fields)</span>
           {% endif %}
         </label>
+
+        {% set placeholder_text = {
+          'Reagent list': 'A list of the chemical reagents required for the experiment. List each reagent on a separate line and DO NOT include quantity or concentration information. E.g.:
+
+Nitric acid
+Sodium hydroxide',
+          'Lab supplies and equipment': 'List all non-chemical supplies and equipment needed. Include non-hazardous household items (e.g. food dye) here',
+          'Chemicals to prepare': "This section documents all the work that will be done to prepare solutions, samples, and unknowns for use in the lab. This should include all the information around quantity needed, the type of container it should be put into (scintillation vial, dropper bottle, etc). From the stockroom's perspective, this is all the work that gets done in the main prep room to get chemicals ready to go on to a cart and get delivered to the teaching lab.",
+          'Laboratory setup': 'This is the complete list of chemicals, equipment, consumables, and other set up steps required to get the teaching lab ready for the day. For chemicals, consumables, and lab equipment this section needs to specify where in the lab each item should be set up (instructor\'s station, at each student desk, in the fume hood, etc). For lab equipment, provide relevant settings: e.g. "gas panel on", "oven set to 140 deg C". This section will serve as a checklist for the student worker who goes into the teaching lab in the hour before the lab starts.',
+          'Waste streams': 'This section lists the types and quantities of hazardous and non-hazardous waste to be collected during the experiment. For hazardous waste streams, include the relevant RCRA designation(s) (flammable, corrosive, toxic, or reactive). Use the "Preview Reagent Table" feature above to see relevant RCRA information. For non-hazardous waste and acid/base waste (hazardous waste whose only RCRA designation is corrosive) include disposal information. E.g. "landfill", or "neutralize and wash down drain".'
+        }.get(section_name, 'Enter ' + section_name + ' content here...') %}
+  
         <textarea id="section_{{ section_name|replace(' ', '_') }}" 
                   name="section_{{ section_name }}" 
                   rows="{% if section_name == 'Lab Description' %}3{% else %}8{% endif %}" 
                   style="margin-top: 10px; font-family: monospace; {% if section_name == 'Lab Description' %}background: #e9ecef;{% endif %}"
                   {% if section_name == 'Lab Description' %}readonly{% endif %}
-                  placeholder="Enter {{ section_name }} content here...">{% if section_name == 'Lab Description' %}Course: {{ sop[3] }}
+                  placeholder="{{ placeholder_text }}">{% if section_name == 'Lab Description' %}Course: {{ sop[3] }}
 Owner: {{ sop[5] }}{% else %}{{ sections.get(section_name, '') }}{% endif %}</textarea>
+        
+        {% if section_name == 'Reagent list' and chemical_safety_available %}
+        <button type="button" 
+                id="preview-reagents-btn" 
+                style="margin-top: 10px; padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+                onclick="previewReagents()">
+          Preview Reagent Table
+        </button>
+        <div id="preview-loading" style="display: none; margin-top: 10px; color: #666;">
+          Loading chemical data...
+        </div>
+        <div id="preview-container" style="margin-top: 15px;"></div>
+        {% endif %}
       </div>
       {% endfor %}
       
@@ -392,6 +515,165 @@ Owner: {{ sop[5] }}{% else %}{{ sections.get(section_name, '') }}{% endif %}</te
         updateMetadata();
       });
     });
+    
+    // Preview reagents function
+    function previewReagents() {
+      var textarea = document.getElementById('section_Reagent_list');
+      var previewContainer = document.getElementById('preview-container');
+      var loadingDiv = document.getElementById('preview-loading');
+      
+      if (!textarea || !previewContainer) return;
+      
+      var reagentText = textarea.value.trim();
+      
+      if (!reagentText) {
+        previewContainer.innerHTML = '<div style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; color: #856404;">Please enter some reagents first.</div>';
+        return;
+      }
+      
+      // Show loading
+      loadingDiv.style.display = 'block';
+      previewContainer.innerHTML = '';
+      
+      // Make request to backend
+      fetch('{{ url_for("preview_reagents") }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reagent_text: reagentText })
+      })
+      .then(response => response.json())
+      .then(data => {
+        loadingDiv.style.display = 'none';
+        
+        if (data.error) {
+          previewContainer.innerHTML = '<div style="padding: 15px; background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24;">Error: ' + data.error + '</div>';
+          return;
+        }
+        
+        if (!data.chemicals || data.chemicals.length === 0) {
+          previewContainer.innerHTML = '<div style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; color: #856404;">No chemicals found. Make sure to format reagents as a list (- or * prefix).</div>';
+          return;
+        }
+        
+        // Build table HTML
+        var html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; margin-top: 15px;">';
+        html += '<thead><tr style="background: #d3c2df !important;">';
+        html += '<th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Name</th>';
+        html += '<th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Formula & Mass</th>';
+        html += '<th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Particularly Hazardous</th>';
+        html += '<th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Hazardous Waste</th>';
+        html += '<th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Disposal</th>';
+        html += '<th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Other Concerns</th>';
+        html += '<th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Pictograms</th>';
+        html += '</tr></thead><tbody>';
+        
+        data.chemicals.forEach(function(c) {
+          html += '<tr style="border-bottom: 1px solid #ddd;">';
+          
+          if (c.is_error) {
+            html += '<td colspan="7" style="padding: 10px; color: #dc3545;">';
+            html += '<strong>' + c.name + '</strong> - Error: ' + c.error;
+            if (c.details && c.details.length > 0) {
+              html += '<div style="font-size: 0.9em; margin-top: 5px;">';
+              c.details.forEach(function(detail) {
+                html += '<div style="margin-bottom: 3px;">' + detail + '</div>';
+              });
+              html += '</div>';
+            }
+            html += '</td>';
+          } else {
+            // Name column
+            html += '<td style="padding: 10px; border: 1px solid #ddd;">';
+            html += '<div><strong>' + (c.full_name || c.name) + '</strong></div>';
+            if (c.name_difference) {
+              html += '<div style="color: #856404; font-size: 0.9em;">⚠️ (entered as: ' + c.name + ')</div>';
+            }
+            if (c.details && c.details.length > 0) {
+              html += '<div style="font-size: 0.85em; margin-top: 5px; font-weight: normal;">';
+              c.details.forEach(function(detail) {
+                html += '<div style="margin-bottom: 3px;">' + detail + '</div>';
+              });
+              html += '</div>';
+            }
+            html += '</td>';
+            
+            // Formula & Mass column
+            html += '<td style="padding: 10px; border: 1px solid #ddd;">';
+            if (c.dp_molecule && c.dp_molecule.simple_html) {
+              html += '<div><strong>' + c.dp_molecule.simple_html + '</strong></div><br>';
+            }
+            if (c.dp_molecule && c.dp_molecule.molecular_weight) {
+              html += '<div>' + c.dp_molecule.molecular_weight + ' g/mol</div>';
+            }
+            html += '</td>';
+            
+            // Particularly Hazardous column
+            html += '<td style="padding: 10px; border: 1px solid #ddd;">';
+            if (c.WSU_particularly_hazardous) {
+              if (c.WSU_No_GHS) html += '<div>No safety information available</div>';
+              if (c.WSU_highly_acute_toxin) html += '<div>Highly acute toxin</div>';
+              if (c.WSU_reproductive_toxin) html += '<div>Reproductive toxin</div>';
+              if (c.WSU_carcinogen) html += '<div>Carcinogen</div>';
+            }
+            html += '</td>';
+            
+            // Hazardous Waste column
+            html += '<td style="padding: 10px; border: 1px solid #ddd;">';
+            if (c.hazardous_waste) {
+              html += c.hazardous_waste_info || '';
+            }
+            html += '</td>';
+            
+            // Disposal column
+            html += '<td style="padding: 10px; border: 1px solid #ddd;">';
+            if (c.disposal_info && c.disposal_info.length > 0) {
+              c.disposal_info.forEach(function(info) {
+                html += '<div>' + info + '</div>';
+              });
+            }
+            html += '</td>';
+            
+            // Other Concerns column
+            html += '<td style="padding: 10px; border: 1px solid #ddd;">';
+            if (c.flammability_class) {
+              html += '<div>Flammability: ' + c.flammability_class + '</div>';
+            }
+            if (c.peroxide_class) {
+              html += '<div>Peroxide Class ' + c.peroxide_class + ': ' + c.peroxide_class_info + '</div>';
+            }
+            html += '</td>';
+            
+            // Pictograms column
+            html += '<td style="padding: 10px; border: 1px solid #ddd;">';
+            if (c.pictograms && c.pictograms.length > 0) {
+              html += '<div style="display: flex; flex-wrap: wrap; gap: 5px;">';
+              c.pictograms.forEach(function(pictogram) {
+                html += '<img src="{{ url_for("static", filename="img/") }}' + pictogram + '.svg" ';
+                html += 'alt="' + pictogram + '" title="' + pictogram + '" ';
+                html += 'style="width: 32px; height: 32px;">';
+              });
+              html += '</div>';
+            }
+            html += '</td>';
+          }
+          
+          html += '</tr>';
+        });
+        
+        html += '</tbody></table></div>';
+        html += '<div style="margin-top: 10px; padding: 10px; background: #d1ecf1; border-left: 4px solid #0c5460; color: #0c5460; font-size: 14px;">';
+        html += '📝 Check each row carefully to ensure that the pubchem search returned the correct chemical.';
+        html += '</div>';
+        
+        previewContainer.innerHTML = html;
+      })
+      .catch(error => {
+        loadingDiv.style.display = 'none';
+        previewContainer.innerHTML = '<div style="padding: 15px; background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24;">Error loading preview: ' + error + '</div>';
+      });
+    }
   </script>
   {% endif %}
   
@@ -414,115 +696,18 @@ Owner: {{ sop[5] }}{% else %}{{ sections.get(section_name, '') }}{% endif %}</te
     
     <!-- Display sections -->
     {% for section_name in standard_sections %}
-    {% if sections.get(section_name, '').strip() %}
+      <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
       {% if section_name == 'Reagent list' and chemical_safety_available and reagent_chemicals|length > 0 %}
         <!-- Replace Reagent list section with chemical table -->
         <div style="margin: 25px 0;">
-          <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
-          <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-            <thead>
-              <tr style="background: #d3c2df !important;">
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Name</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Formula & Mass</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Particularly Hazardous</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Hazardous Waste</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Disposal</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Other Concerns</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Pictograms</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for c in reagent_chemicals %}
-              <tr style="border-bottom: 1px solid #ddd;">
-                {% if c.is_error is defined %}
-                  <td colspan="7" style="padding: 10px; color: #dc3545;">
-                    <strong>{{ c.name }}</strong> - Error: {{ c.error }}
-                    {% if c.details %}
-                      <div style="font-size: 0.9em; margin-top: 5px;">
-                        {% for detail in c.details %}
-                          <div style="margin-bottom: 3px;">{{ detail }}</div>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </td>
-                {% else %}
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    <div><strong>{{ c.full_name }}</strong></div>
-                    {% if c.name_difference %}
-                      <div style="color: #856404; font-size: 0.9em;">⚠️ (entered as: {{ c.name }})</div>
-                    {% endif %}
-                    {% if c.details %}
-                      <div style="font-size: 0.85em; margin-top: 5px; font-weight: normal;">
-                        {% for detail in c.details %}
-                          <div style="margin-bottom: 3px;">{{ detail }}</div>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.dp_molecule.simple_html %}
-                      <div><strong>{{ c.dp_molecule.simple_html|safe }}</strong></div><br>
-                    {% endif %}
-                    {% if c.dp_molecule and c.dp_molecule.molecular_weight %}
-                      <div>{{ c.dp_molecule.molecular_weight }} g/mol</div>
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.WSU_particularly_hazardous %}
-                      {% if c.WSU_No_GHS %}<div>No safety information available</div>{% endif %}
-                      {% if c.WSU_highly_acute_toxin %}<div>Highly acute toxin</div>{% endif %}
-                      {% if c.WSU_reproductive_toxin %}<div>Reproductive toxin</div>{% endif %}
-                      {% if c.WSU_carcinogen %}<div>Carcinogen</div>{% endif %}
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.hazardous_waste %}
-                      {{ c.hazardous_waste_info }}
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.disposal_info %}
-                      {% for i in c.disposal_info %}
-                        <div>{{ i }}</div>
-                      {% endfor %}
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.flammability_class %}
-                      <div>Flammability: {{ c.flammability_class }}</div>
-                    {% endif %}
-                    {% if c.peroxide_class %}
-                      <div>Peroxide Class {{ c.peroxide_class }}: {{ c.peroxide_class_info }}</div>
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.pictograms %}
-                      <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                        {% for pictogram in c.pictograms %}
-                          <img src="{{ url_for('static', filename='img/' + pictogram + '.svg') }}" 
-                               alt="{{ pictogram }}" 
-                               title="{{ pictogram }}" 
-                               style="width: 32px; height: 32px;">
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </td>
-                {% endif %}
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          </div>
+          {{ render_chemical_table(reagent_chemicals) }}
         </div>
       {% else %}
         <!-- Normal section display -->
         <div style="margin: 25px 0;">
-          <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
           <div class="markdown-content">{{ sections.get(section_name, '') }}</div>
         </div>
       {% endif %}
-    {% endif %}
     {% endfor %}
   </div>
   
@@ -628,101 +813,7 @@ Owner: {{ sop[5] }}{% else %}{{ sections.get(section_name, '') }}{% endif %}</te
         <!-- Replace Reagent list section with chemical table -->
         <div style="margin: 25px 0;">
           <h2 style="color: #333; font-size: 20px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px;">{{ section_name }}</h2>
-          <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-            <thead>
-              <tr style="background: #d3c2df !important;">
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Name</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Formula & Mass</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Particularly Hazardous</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Hazardous Waste</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Disposal</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Other Concerns</th>
-                <th style="padding: 10px; text-align: left; border: 1px solid #999; color: #000; background-color: #d3c2df !important;">Pictograms</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for c in approved_reagent_chemicals %}
-              <tr style="border-bottom: 1px solid #ddd;">
-                {% if c.is_error is defined %}
-                  <td colspan="7" style="padding: 10px; color: #dc3545;">
-                    <strong>{{ c.name }}</strong> - Error: {{ c.error }}
-                    {% if c.details %}
-                      <div style="font-size: 0.9em; margin-top: 5px;">
-                        {% for detail in c.details %}
-                          <div style="margin-bottom: 3px;">{{ detail }}</div>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </td>
-                {% else %}
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    <div><strong>{{ c.full_name }}</strong></div>
-                    {% if c.name_difference %}
-                      <div style="color: #856404; font-size: 0.9em;">⚠️ (entered as: {{ c.name }})</div>
-                    {% endif %}
-                    {% if c.details %}
-                      <div style="font-size: 0.85em; margin-top: 5px; font-weight: normal;">
-                        {% for detail in c.details %}
-                          <div style="margin-bottom: 3px;">{{ detail }}</div>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.dp_molecule.simple_html %}
-                      <div><strong>{{ c.dp_molecule.simple_html|safe }}</strong></div><br>
-                    {% endif %}
-                    {% if c.dp_molecule and c.dp_molecule.molecular_weight %}
-                      <div>{{ c.dp_molecule.molecular_weight }} g/mol</div>
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.WSU_particularly_hazardous %}
-                      {% if c.WSU_No_GHS %}<div>No safety information available</div>{% endif %}
-                      {% if c.WSU_highly_acute_toxin %}<div>Highly acute toxin</div>{% endif %}
-                      {% if c.WSU_reproductive_toxin %}<div>Reproductive toxin</div>{% endif %}
-                      {% if c.WSU_carcinogen %}<div>Carcinogen</div>{% endif %}
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.hazardous_waste %}
-                      {{ c.hazardous_waste_info }}
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.disposal_info %}
-                      {% for i in c.disposal_info %}
-                        <div>{{ i }}</div>
-                      {% endfor %}
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.flammability_class %}
-                      <div>Flammability: {{ c.flammability_class }}</div>
-                    {% endif %}
-                    {% if c.peroxide_class %}
-                      <div>Peroxide Class {{ c.peroxide_class }}: {{ c.peroxide_class_info }}</div>
-                    {% endif %}
-                  </td>
-                  <td style="padding: 10px; border: 1px solid #ddd;">
-                    {% if c.pictograms %}
-                      <div style="display: flex; flex-wrap: wrap; gap: 5px;">
-                        {% for pictogram in c.pictograms %}
-                          <img src="{{ url_for('static', filename='img/' + pictogram + '.svg') }}" 
-                               alt="{{ pictogram }}" 
-                               title="{{ pictogram }}" 
-                               style="width: 32px; height: 32px;">
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </td>
-                {% endif %}
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          </div>
+          {{ render_chemical_table(approved_reagent_chemicals) }}
         </div>
       {% else %}
         <!-- Normal section display -->

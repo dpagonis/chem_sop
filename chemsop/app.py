@@ -119,7 +119,7 @@ def lookup_chemicals(reagents):
             c.details = reagent['details']  # Add details to chemical object
             chemicals.append(c)
         except Exception as e:
-            print(f"Error looking up chemical '{reagent['name']}': {e}")
+            #print(f"Error looking up chemical '{reagent['name']}': {e}".encode('utf-8', errors='backslashreplace').decode('utf-8'))
             # Create a placeholder object for failed lookups
             class ErrorChemical:
                 def __init__(self, name, details, error):

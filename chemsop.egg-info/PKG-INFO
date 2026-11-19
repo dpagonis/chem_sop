@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: chemsop
+Version: 0.2.1
+License-File: LICENSE
+Requires-Dist: Flask>=3.0.0
+Requires-Dist: bcrypt>=4.1.2
+Requires-Dist: chemical_safety
+Dynamic: license-file
